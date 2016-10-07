@@ -8,14 +8,12 @@
 #include "Utils.h"
 #include "DataLink.h"
 
-/*typedef struct {
-	char *file;
-	int fd, mode;
-} Application;*/
-
 void printConfig(Application *app) {
 	printf("CURRENT CONFIGURATIONS\n");
-	printf(" - Mode: %d\n", app->mode);
+	if(app->mode == SEND)
+		printf(" - Mode: SENDER\n");
+	if(app->mode == RECEIVE)
+		printf(" - Mode: RECEIVER\n");
 	//printf(" - Baud rate: %d\n", ll->baudRate);
 //	printf(" - Message data max. size: %d\n", ll->messageDataMaxSize);
 //	printf(" - Max. no. retries: %d\n", ll->numTries - 1);
@@ -25,18 +23,18 @@ void printConfig(Application *app) {
 }
 
 int sendFile(Application *app) {
-	FILE *file = fopen(app->file, "rb");
+	/*FILE *file = fopen(app->file, "rb");
 	if (file == NULL) {
 		printf("ERROR: Failed to open \"%s\".", app->file);
 		return -1;
-	}
-
-	int fd = llopen(app->mode);
+	}*/
+	llopen(app);
 
 	return 0;
 }
 
-int receiveFile() {
+int receiveFile(Application *app) {
+	llopen(app);
 	return 0;
 }
 
@@ -60,16 +58,16 @@ int initApplication(int mode, char *port, char *file) {
 
 	printConfig(app);
 
-	/*switch (app->mode) {
+	switch (app->mode) {
 	case SEND:
 		sendFile(app);
 		break;
 	case RECEIVE:
-		receiveFile();
+		receiveFile(app);
 		break;
 	}
 
-	closeSerialPort(app, dl);*/
+	closeSerialPort(app, dl);
 
 	return 0;
 }
