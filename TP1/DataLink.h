@@ -14,21 +14,24 @@ typedef struct {
 	unsigned int ns, timeout, retries;
 } DataLink;
 
-DataLink *dl;
+typedef struct {
+	char *file, *port;
+	int fd, mode;
+} Application;
 
-int initDataLink(int mode, char *port) {
-	dl = (DataLink *)malloc(sizeof(DataLink));
+//int send_frame(char* sframe, char*)
 
+int initDataLink(Application *app, DataLink *dl) {
 	dl->ns = 0;
-	dl->mode = mode;
-	dl->port = port;
+	dl->mode = app->mode;
+	dl->port = app->port;
 	dl->timeout = TIMEOUT;
 	dl->retries = RETRIES;
 	dl->baudrate = BAUDRATE;
 	dl->max_size = MAX_SIZE;
 
 	// Save current port settings
-	if (tcgetattr(app->fd, &dl->oldtio) != 0) {
+	if (tcgetattr(app->fd, &dl->oldtio) == -1) {
 		printf("ERROR: Could not save current port settings.\n");
 		return -1;
 	}
@@ -39,9 +42,18 @@ int initDataLink(int mode, char *port) {
 	dl->newtio.c_iflag = IGNPAR;
 	dl->newtio.c_oflag = 0;
 	dl->newtio.c_lflag = 0;
-	dl->newtio.c_cc[VMIN] = 0;
-	dl->newtio.c_cc[VTIME] = 3;
-
+	if(app->mode == SEND)
+	{
+		dl->newtio.c_cc[VMIN] = 10;
+		dl->newtio.c_cc[VTIME] = 0;
+	}
+	else if(app->mode == RECEIVE)
+	{
+		dl->newtio.c_cc[VMIN] = 10;
+		dl->newtio.c_cc[VTIME] = 5;
+	}
+	else
+		return(-1);
 	tcflush(app->fd, TCIOFLUSH);
 	if (tcsetattr(app->fd, TCSANOW, &dl->newtio) == -1) {
 		printf("ERROR: Failed to set new termios structure.\n");
@@ -51,7 +63,7 @@ int initDataLink(int mode, char *port) {
 	return 0;
 }
 
-int closeSerialPort() {
+int closeSerialPort(Application *app, DataLink *dl) {
 	if (tcsetattr(app->fd, TCSANOW, &dl->oldtio) == -1) {
 		perror("tcsetattr");
 		return -1;
@@ -63,14 +75,14 @@ int closeSerialPort() {
 }
 
 int llopen() {
-	switch (app->mode) {
+	/*switch (app->mode) {
 	case SEND:
 		int tries = 0, connected = 0;
 		break;
 	case RECEIVE:
 		break;
 	}
-
+*/
 	return 0;
 }
 
