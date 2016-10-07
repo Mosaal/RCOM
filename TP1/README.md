@@ -1,3 +1,4 @@
+'''
 // READ FILE
 FILE *fileRead;
 fileRead = fopen(argv[1], "rb");
@@ -24,3 +25,4 @@ size_t bytesWritten = fwrite(buffer, 1, size, fileWrite);
 printf("BytesWritten = %lu\n", bytesWritten);
 
 fclose(fileWrite);
+'''
