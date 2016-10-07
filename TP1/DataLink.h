@@ -7,6 +7,11 @@
 #include "Application.h"
 
 typedef struct {
+	int fd, mode;
+	char *file, *port;
+} Application;
+
+typedef struct {
 	char *port;
 	char frame[MAX_SIZE];
 	int mode, baudrate, max_size;
@@ -14,14 +19,9 @@ typedef struct {
 	unsigned int ns, timeout, retries;
 } DataLink;
 
-typedef struct {
-	char *file, *port;
-	int fd, mode;
-} Application;
-
 int writeFrame(Application *app, char *sframe) {
 
-  if(write(app->fd, sframe, 5) == -1) {
+	if(write(app->fd, sframe, 5) == -1) {
 		printf("ERROR: Failed to write frame.\n");
 		return -1;
 	}
@@ -36,18 +36,16 @@ int readFrame(Application *app, char *frame) {
 	if(read(app->fd, &chr, 1) == -1 || chr != FLAG) {
 		printf("ERROR: Failed to read frame.\n");
 		return -1;
-	}
-	else {
-		for(j = 1; j < 5; j++)
-		{
+	} else {
+		for(j = 1; j < 5; j++) {
 			read(app->fd, &chr, 1);
-      if(chr != frame[j])
-      {
-        printf("ERROR: Failed recieving byte %d of frame\n", j);
-        return -1;
-      }
+			if(chr != frame[j]) {
+				printf("ERROR: Failed recieving byte %d of frame\n", j);
+				return -1;
+			}
 		}
 	}
+	
 	return 0;
 }
 
@@ -72,6 +70,7 @@ int initDataLink(Application *app, DataLink *dl) {
 	dl->newtio.c_iflag = IGNPAR;
 	dl->newtio.c_oflag = 0;
 	dl->newtio.c_lflag = 0;
+
 	if(app->mode == SEND)
 	{
 		dl->newtio.c_cc[VMIN] = 0;
@@ -83,7 +82,8 @@ int initDataLink(Application *app, DataLink *dl) {
 		dl->newtio.c_cc[VTIME] = 10;
 	}
 	else
-		return(-1);
+		return -1;
+
 	tcflush(app->fd, TCIOFLUSH);
 	if (tcsetattr(app->fd, TCSANOW, &dl->newtio) == -1) {
 		printf("ERROR: Failed to set new termios structure.\n");

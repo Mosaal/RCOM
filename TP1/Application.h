@@ -14,7 +14,7 @@ void printConfig(Application *app) {
 		printf(" - Mode: SENDER\n");
 	if(app->mode == RECEIVE)
 		printf(" - Mode: RECEIVER\n");
-	//printf(" - Baud rate: %d\n", ll->baudRate);
+//	printf(" - Baud rate: %d\n", ll->baudRate);
 //	printf(" - Message data max. size: %d\n", ll->messageDataMaxSize);
 //	printf(" - Max. no. retries: %d\n", ll->numTries - 1);
 //	printf(" - Time-out interval: %d\n", ll->timeout);
@@ -44,8 +44,8 @@ int initApplication(int mode, char *port, char *file) {
 
 	app->mode = mode;
 	app->file = file;
-	app->fd = open(port, O_RDWR | O_NOCTTY);
 	app->port = port;
+	app->fd = open(port, O_RDWR | O_NOCTTY);
 
 	if (app->fd < 0) {
 		printf("ERROR: Failed to open serial port.\n");
