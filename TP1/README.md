@@ -1,7 +1,7 @@
 ```
 // READ FILE
 FILE *fileRead;
-fileRead = fopen(argv[1], "rb");
+fileRead = fopen(fileName, "rb");
 long int size = getFileSize(fileRead);
 
 unsigned char buffer[size];
@@ -18,7 +18,7 @@ fclose(fileRead);
 
 // WRITE FILE
 FILE *fileWrite;
-fileWrite = fopen(argv[2], "wb");
+fileWrite = fopen(fileName, "wb");
 
 size_t bytesWritten = fwrite(buffer, 1, size, fileWrite);
 
