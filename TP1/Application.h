@@ -1,50 +1,20 @@
-#ifndef APPLICATION_H_
-#define APPLICATION_H_
+#ifndef APPLICATION_H
+#define APPLICATION_H
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
-#include <termios.h>
+#include <unistd.h>
 #include "Utils.h"
 #include "DataLink.h"
 
-void printConfig(Application *app) {
-	printf("CURRENT CONFIGURATIONS\n");
-	if(app->mode == SEND)
-		printf(" - Mode: SENDER\n");
-	if(app->mode == RECEIVE)
-		printf(" - Mode: RECEIVER\n");
-//	printf(" - Baud rate: %d\n", ll->baudRate);
-//	printf(" - Message data max. size: %d\n", ll->messageDataMaxSize);
-//	printf(" - Max. no. retries: %d\n", ll->numTries - 1);
-//	printf(" - Time-out interval: %d\n", ll->timeout);
-	printf(" - Port: %s\n", app->port);
-//	printf(" - File: %s\n", al->fileName);
-}
-
-int sendFile(Application *app) {
-	/*FILE *file = fopen(app->file, "rb");
-	if (file == NULL) {
-		printf("ERROR: Failed to open \"%s\".", app->file);
-		return -1;
-	}*/
-	llopen(app);
-
-	return 0;
-}
-
-int receiveFile(Application *app) {
-	llopen(app);
-	return 0;
-}
-
-int initApplication(int mode, char *port, char *file) {
-	Application *app;
+int initApplication(int mode, char *port, char *fileName) {
 	app = (Application *)malloc(sizeof(Application));
 
 	app->mode = mode;
-	app->file = file;
 	app->port = port;
+	app->fileName = fileName;
 	app->fd = open(port, O_RDWR | O_NOCTTY);
 
 	if (app->fd < 0) {
@@ -52,24 +22,54 @@ int initApplication(int mode, char *port, char *file) {
 		return -1;
 	}
 
-	DataLink *dl;
-	dl = (DataLink *)malloc(sizeof(DataLink));
-	initDataLink(app, dl);
+	initDataLink();
 
-	printConfig(app);
-
-	switch (app->mode) {
-	case SEND:
-		sendFile(app);
-		break;
-	case RECEIVE:
-		receiveFile(app);
-		break;
+	if (llopen(app->fd, app->mode) == -1) {
+		printf("ERROR: Failed to create a connection.\n");
+		return -1;
 	}
 
-	closeSerialPort(app, dl);
+	/*if (app->mode == SEND) {
+		FILE *file;
+		file = fopen(fileName, "rb");
+		if (file == NULL) {
+			printf("ERROR: Failed to open file \"%s\".\n", fileName);
+			return -1;
+		}
 
-	return 0;
+		unsigned char buffer[getFileSize(file)];
+		size_t bytesRead = fread(buffer, 1, sizeof(buffer), file);
+		fclose(file);
+
+		if (llwrite(app->fd, buffer, MAX_SIZE) == -1) {
+			printf("ERROR: Failed to send all of the data.\n");
+			return -1;
+		}
+	} else if (app->mode == RECEIVE) {
+		unsigned char *buffer;
+
+		if (llread(app->fd, buffer) == -1) {
+			printf("ERROR: Failed to receive all of the data.\n");
+			return -1;
+		}
+
+		FILE *file;
+		file = fopen(fileName, "wb");
+		if (file == NULL) {
+			printf("ERROR: Failed to create file \"%s\".\n", fileName);
+			return -1;
+		}
+
+		size_t bytesWritten = fwrite(buffer, 1, sizeof(buffer), file);
+		fclose(file);
+	}*/
+
+	if (llclose(app->fd, app->mode) == -1) {
+		printf("ERROR: Failed to close the connection.\n");
+		return -1;
+	}
+
+	closeSerialPort();
 }
 
-#endif /* APPLICATION_H_ */
+#endif

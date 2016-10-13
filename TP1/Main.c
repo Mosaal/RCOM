@@ -1,14 +1,12 @@
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include "Utils.h"
 #include "Application.h"
 
 void printUsage(char *command) {
-	printf("Usage: %s <options> <port> <file>\n", command);
-	printf("Where <options> includes:\n");
-	printf("    -s    Send file\n");
-	printf("    -r    Receive file\n");
+	printf("Usage: %s <mode> <port> <file>\n", command);
+	printf("Where <mode> includes:\n");
+	printf("    -s    Send a file\n");
+	printf("    -r    Receive a file\n");
 	printf("And <port> includes:\n");
 	printf("    /dev/ttyS0\n");
 	printf("    /dev/ttyS1\n");
@@ -16,7 +14,7 @@ void printUsage(char *command) {
 
 int processArguments(char **argv) {
 	int mode;
-	char *port, *file;
+	char *port, *fileName;
 
 	if (strcmp(argv[1], "-s") == 0)
 		mode = SEND;
@@ -28,24 +26,26 @@ int processArguments(char **argv) {
 		return -1;
 	}
 
-	if (strcmp(argv[2], "/dev/ttyS0") == 0 || strcmp(argv[2], "/dev/ttyS1") == 0) {
+	if (strcmp(argv[2], "/dev/ttyS0") == 0 || strcmp(argv[2], "/dev/ttyS1") == 0)
 		port = argv[2];
-	} else {
+	else {
 		printf("ERROR: Please choose a valid port.\n");
 		printUsage(argv[0]);
 		return -1;
 	}
 
-	FILE *fd = fopen(argv[3], "r");
-	if (fd == NULL) {
-		printf("ERROR: The file \"%s\" doesn't exist.\n", argv[3]);
+	FILE *file;
+	file = fopen(argv[3], "r");
+	if (file == NULL) {
+		printf("ERROR: File \"%s\" does not exist.\n", argv[3]);
 		printUsage(argv[0]);
 		return -1;
 	} else {
-		fclose(fd);
+		fclose(file);
+		fileName = argv[3];
 	}
 
-	initApplication(mode, port, file);
+	initApplication(mode, port, fileName);
 
 	return 0;
 }
