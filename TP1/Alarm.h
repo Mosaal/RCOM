@@ -6,17 +6,18 @@
 #include <unistd.h>
 #include "Utils.h"
 
-int tries = 0;
+int triesConnect = 0;
+unsigned char *COMMAND;
 
-void reconnect() {
-	if (tries < dl->retries) {
-		printf("Retrying to send SET buffer.\n");
-		write(app->fd, SET, sizeof(SET));
-		tries++;
+void connect() {
+	if (triesConnect < dl->retries) {
+		printf("No response. Tries left = %d\n", dl->retries - triesConnect);
+		write(app->fd, COMMAND, COMMAND_SIZE);
+		triesConnect++;
 		alarm(dl->timeout);
 	} else {
-		printf("Receiver not replying.\n");
 		alarm(0);
+		printf("ERROR: Failed to create a connection.\n");
 		exit(-1);
 	}
 }

@@ -12,6 +12,7 @@ volatile int STOP = FALSE;
 int initDataLink() {
 	dl = (DataLink *)malloc(sizeof(DataLink));
 
+	dl->ns = 0;
 	dl->retries = 3;
 	dl->timeout = 3;
 
@@ -39,16 +40,43 @@ int initDataLink() {
 	return 0;
 }
 
+unsigned char *createCommand(int command) {
+	unsigned char *buf = (unsigned char *)malloc(5);
+
+	buf[0] = FLAG;
+	buf[1] = A;
+
+	switch (command) {
+	case UA:
+		buf[2] = C_UA;
+		break;
+	case SET:
+		buf[2] = C_SET;
+		break;
+	case DISC:
+		buf[2] = C_DISC;
+		break;
+	}
+
+	buf[3] = buf[1] ^ buf[2];
+	buf[4] = FLAG;
+
+	return buf;
+}
+
 int llopen(int fd, int mode) {
 	int res = 0;
-	unsigned char x, flag, bcc;
+	unsigned char x, flag;
+	unsigned char answer[5];
 
 	switch (mode) {
 	case SEND:
-		(void)signal(SIGALRM, reconnect);
+		COMMAND = createCommand(SET);
+
+		(void)signal(SIGALRM, connect);
 		alarm(dl->timeout);
 
-		if (write(fd, SET, sizeof(SET)) == -1) {
+		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send SET buffer.\n");
 			return -1;
 		}
@@ -61,11 +89,10 @@ int llopen(int fd, int mode) {
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
-			UA[res - 1] = x;
+			answer[res - 1] = x;
 		}
 
-		bcc = UA[1] ^ UA[2];
-		if (UA[3] != bcc) {
+		if (answer[3] != (A ^ C_UA)) {
 			printf("ERROR: Failure on initial connection.\n");
 			return -1;
 		}
@@ -73,6 +100,8 @@ int llopen(int fd, int mode) {
 		alarm(0);
 		break;
 	case RECEIVE:
+		COMMAND = createCommand(UA);
+
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
@@ -81,16 +110,15 @@ int llopen(int fd, int mode) {
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
-			SET[res - 1] = x;
+			answer[res - 1] = x;
 		}
 
-		bcc = SET[1] ^ SET[2];
-		if (SET[3] != bcc) {
+		if (answer[3] != (A ^ C_SET)) {
 			printf("ERROR: Failure on initial connection.\n");
 			return -1;
 		}
 
-		if (write(fd, UA, sizeof(UA)) == -1) {
+		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send UA buffer.\n");
 			return -1;
 		}
@@ -101,7 +129,7 @@ int llopen(int fd, int mode) {
 }
 
 int llwrite(int fd, unsigned char *buffer, int length) {
-
+	
 }
 
 int llread(int fd, unsigned char *buffer) {
@@ -110,15 +138,19 @@ int llread(int fd, unsigned char *buffer) {
 
 int llclose(int fd, int mode) {
 	int res = 0;
-	unsigned char x, flag, bcc;
+	unsigned char x, flag;
+	unsigned char answer[5];
 
 	switch (mode) {
 	case SEND:
-		if (write(fd, DISC, sizeof(DISC)) == -1) {
+		COMMAND = createCommand(DISC);
+
+		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send DISC buffer.\n");
 			return -1;
 		}
 
+		STOP = FALSE;
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
@@ -127,21 +159,22 @@ int llclose(int fd, int mode) {
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
-			DISC[res - 1] = x;
+			answer[res - 1] = x;
 		}
 
-		bcc = DISC[1] ^ DISC[2];
-		if (DISC[3] != bcc) {
+		if (answer[3] != (A ^ C_DISC)) {
 			printf("ERROR: Failure on closing connection.\n");
 			return -1;
 		}
 
-		if (write(fd, UA, sizeof(UA)) == -1) {
+		COMMAND = createCommand(UA);
+		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send UA buffer.\n");
 			return -1;
 		}
 		break;
 	case RECEIVE:
+		STOP = FALSE;
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
@@ -150,16 +183,16 @@ int llclose(int fd, int mode) {
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
-			DISC[res - 1] = x;
+			answer[res - 1] = x;
 		}
 
-		bcc = DISC[1] ^ DISC[2];
-		if (DISC[3] != bcc) {
+		if (answer[3] != (A ^ C_DISC)) {
 			printf("ERROR: Failure on closing connection.\n");
 			return -1;
 		}
 
-		if (write(fd, DISC, sizeof(DISC)) == -1) {
+		COMMAND = createCommand(DISC);
+		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send DISC buffer.\n");
 			return -1;
 		}
@@ -174,11 +207,10 @@ int llclose(int fd, int mode) {
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
-			UA[res - 1] = x;
+			answer[res - 1] = x;
 		}
 
-		bcc = UA[1] ^ UA[2];
-		if (UA[3] != bcc) {
+		if (answer[3] != (A ^ C_UA)) {
 			printf("ERROR: Failure on initial connection.\n");
 			return -1;
 		}
