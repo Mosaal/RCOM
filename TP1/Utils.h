@@ -13,36 +13,39 @@
 
 #define A                0x03
 #define FLAG             0x7E
-#define DATA             0x02
+#define DATA             0x01
 #define ESCAPE           0x7D
 
 #define C_UA             0x03
 #define C_SET            0x07
 #define C_DISC           0x0B
 
-#define COMMAND_SIZE     5
-#define DATA_PKG_SIZE    5
-#define CTRL_PKG_SIZE    13
+#define START            0
+#define FLAG_RCV         1
+#define A_RCV            2
+#define C_RCV            3
+#define BCC_OK           4
+#define DONE             5
 
-#define CTRL_PKG_START   1
-#define CTRL_PKG_DATA    2
+#define COMMAND_SIZE     5
+#define DATA_PKG_SIZE    4
+#define CTRL_PKG_SIZE    11
+
+#define CTRL_PKG_DATA    1
+#define CTRL_PKG_START   2
 #define CTRL_PKG_END     3
 
 #define PARAM_FILE_SIZE  0
 #define PARAM_FILE_NAME  1
 
 #define _POSIX_SOURCE    1
-#define PROGRESS_BAR     30
+#define PROGRESS_BAR     40
 #define MAX_SIZE         512
 #define BAUDRATE         B38400
 
 #include <stdio.h>
 #include <termios.h>
 #include <sys/stat.h>
-
-typedef enum {
-	START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DONE
-} State;
 
 typedef struct {
 	int fd, mode;

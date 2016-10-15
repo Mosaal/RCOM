@@ -13,24 +13,44 @@
 void printBuffer(unsigned char *buf, int size) {
 	int i;
 	for (i = 0; i < size; i++)
-		printf("0x%02x\n", buf[i]);
+		printf("0x%02x ", buf[i]);
+}
+
+unsigned char *createFrame(int C, unsigned char *buffer, int length) {
+	int i;
+	unsigned char BCC2 = 0x00;
+	unsigned char *frame = (unsigned char *)malloc(length + 6);
+
+	frame[0] = FLAG;
+	frame[1] = A;
+	frame[2] = C;
+	frame[3] = frame[1] ^ frame[2];
+
+	for (i = 0; i < length; i++) {
+		BCC2 ^= buffer[i];
+		frame[i + 4] = buffer[i];
+	}
+
+	frame[length + 4] = BCC2;
+	frame[length + 5] = FLAG;
+
+	return frame;
 }
 
 int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
-	int i;
+	int i, FRAME_SIZE = CTRL_PKG_SIZE + 6;
 	unsigned char ctrlPackage[CTRL_PKG_SIZE];
 
-	ctrlPackage[0] = FLAG;
-	ctrlPackage[1] = A;
-	ctrlPackage[2] = ctrl;
+	ctrlPackage[0] = ctrl;
+	ctrlPackage[1] = PARAM_FILE_SIZE;
+	ctrlPackage[2] = length;
 
 	for (i = 0; i < length; i++)
 		ctrlPackage[i + 3] = buffer[i];
 
-	ctrlPackage[length + 3] = ctrlPackage[1] ^ ctrlPackage[2];
-	ctrlPackage[length + 4] = FLAG;
+	unsigned char *frame = createFrame(ctrl, ctrlPackage, CTRL_PKG_SIZE);
 
-	if (write(app->fd, ctrlPackage, CTRL_PKG_SIZE) == -1)
+	if (write(app->fd, frame, FRAME_SIZE) == -1)
 		return -1;
 	
 	if (ctrl == CTRL_PKG_START)
@@ -41,22 +61,21 @@ int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 	return 0;
 }
 
-int sendDataPackage(unsigned char *buffer, int length) {
-	int i;
+int sendDataPackage(int N, unsigned char *buffer, int length) {
+	int i, FRAME_SIZE = length + DATA_PKG_SIZE + 6;
 	unsigned char dataPackage[length + DATA_PKG_SIZE];
-	unsigned char *readBytesBuf = (unsigned char *)&length;
 
-	dataPackage[0] = FLAG;
-	dataPackage[1] = A;
-	dataPackage[2] = CTRL_PKG_DATA;
+	dataPackage[0] = CTRL_PKG_DATA;
+	dataPackage[1] = N % 255;
+	dataPackage[2] = length / 256;
+	dataPackage[3] = length % 256;
 
 	for (i = 0; i < length; i++)
-		dataPackage[i + 3] = buffer[i];
+		dataPackage[i + 4] = buffer[i];
 
-	dataPackage[length + 3] = dataPackage[1] ^ dataPackage[2];
-	dataPackage[length + 4] = FLAG;
+	unsigned char *frame = createFrame(N << 6, dataPackage, length + DATA_PKG_SIZE);
 
-	if (write(app->fd, dataPackage, length + DATA_PKG_SIZE) == -1)
+	if (write(app->fd, frame, FRAME_SIZE) == -1)
 		return -1;
 
 	return 0;
@@ -65,22 +84,22 @@ int sendDataPackage(unsigned char *buffer, int length) {
 int receiveControlPackage(int ctrl, long int *size) {
 	unsigned char x, flag;
 	int res = 0, var = FALSE;
-	unsigned char answer[CTRL_PKG_SIZE];
+	unsigned char answer[CTRL_PKG_SIZE + 6];
 
 	while (var == FALSE) {
 		res += read(app->fd, &x, 1);
 
 		if (res == 1)
 			flag = x;
-		if (x == flag && res == CTRL_PKG_SIZE)
+		if (x == flag && res == (CTRL_PKG_SIZE + 6))
 			var = TRUE;
 
 		answer[res - 1] = x;
 	}
 
-	if (answer[11] == (A ^ CTRL_PKG_START))
+	if (answer[3] == (A ^ CTRL_PKG_START) && answer[4] == CTRL_PKG_START)
 		printf("Received START control package.\n");
-	else if (answer[11] == (A ^ CTRL_PKG_END))
+	else if (answer[3] == (A ^ CTRL_PKG_END) && answer[4] == CTRL_PKG_END)
 		printf("Received END control package\n");
 	else
 		return -1;
@@ -88,23 +107,25 @@ int receiveControlPackage(int ctrl, long int *size) {
 	int i;
 	unsigned char fileSizeBuf[8];
 	for (i = 0; i < 8; i++)
-		fileSizeBuf[i] = answer[i + 3];
+		fileSizeBuf[i] = answer[i + 7];
 	memcpy(size, fileSizeBuf, 8);
 
 	return 0;
 }
 
 int receiveDataPackage() {
-	long int size = 0;
-	State state = START;
-	volatile int done = FALSE;
-	unsigned char fileBuf[MAX_SIZE];
+	int size = 0;
+	int numBytes = 0, res = 0;
+	unsigned char fileBuf[MAX_SIZE + 10];
+	volatile int over = FALSE, state = START;
 
-	while (done == FALSE) {
+	while (over == FALSE) {
 		unsigned char x;
 
 		if (state != DONE)
-			read(app->fd, &x, 1);
+			res = read(app->fd, &x, 1);
+		if (size == 8)
+			numBytes = fileBuf[6] * 256 + fileBuf[7];
 
 		switch (state) {
 		case START:
@@ -117,50 +138,35 @@ int receiveDataPackage() {
 			if (x == A) {
 				fileBuf[size++] = x;
 				state = A_RCV;
-			} else {
-				size = 0;
-				state = START;
 			}
 			break;
 		case A_RCV:
-			if (x == DATA) {
+			if (x != FLAG) {
 				fileBuf[size++] = x;
 				state = C_RCV;
-			} else if (x == FLAG) {
-				size = 1;
-				state = FLAG_RCV;
-			} else {
-				size = 0;
-				state = START;
 			}
 			break;
 		case C_RCV:
-			if (x == (A ^ DATA)) {
+			if (x == (fileBuf[1] ^ fileBuf[2])) {
 				fileBuf[size++] = x;
 				state = BCC_OK;
-			} else {
-				fileBuf[size++] = x;
 			}
 			break;
 		case BCC_OK:
-			if (x == FLAG) {
+			if (x == FLAG && size == (numBytes + 9)) {
 				fileBuf[size++] = x;
 				state = DONE;
 			} else {
 				fileBuf[size++] = x;
-				// state = C_RCV;
 			}
 			break;
 		case DONE:
-			done = TRUE;
+			over = TRUE;
 			break;
 		}
-
-		printf("0x%02x\n", x);
-		printf("size = %ld\n", size);
 	}
 
-	return size - 5;
+	return size - 10;
 }
 
 int sendFile(FILE *file) {
@@ -171,14 +177,18 @@ int sendFile(FILE *file) {
 		printf("ERROR: Failed to send the START control package.\n");
 		return -1;
 	}
+	
+	// wait for response
 
 	unsigned char fileBuf[MAX_SIZE];
 	size_t readBytes = 0, writtenBytes = 0, i = 0;
 	while ((readBytes = fread(fileBuf, sizeof(unsigned char), MAX_SIZE, file)) > 0) {
-		if (sendDataPackage(fileBuf, readBytes) == -1) {
+		if (sendDataPackage(i++, fileBuf, readBytes) == -1) {
 			printf("ERROR: Failed to send one of the DATA packages.\n");
 			return -1;
 		}
+
+		// wait for response
 
 		memset(fileBuf, 0, MAX_SIZE);
 		writtenBytes += readBytes;
@@ -190,6 +200,8 @@ int sendFile(FILE *file) {
 		printf("ERROR: Failed to send the START control package.\n");
 		return -1;
 	}
+	
+	// wait for response
 
 	return 0;
 }
@@ -201,14 +213,17 @@ int receiveFile() {
 		return -1;
 	}
 
+	printf("size = %ld\n", fileSize);
+
 	int readBytes = 0, receivedBytes = 0;
-	while ((readBytes = receiveDataPackage()) != fileSize) {
-		receivedBytes += readBytes;
-		printProgress(receivedBytes, fileSize);
+	while ((receivedBytes = receiveDataPackage()) != fileSize) {
+		printf("receivedBytes = %d\n", receivedBytes);
+		readBytes += receivedBytes;
+		printProgress(readBytes, fileSize);
 	}
 
-	if (receivedBytes == 0)
-		printProgress(readBytes, fileSize);
+	if (receivedBytes == fileSize)
+		printProgress(receivedBytes, fileSize);
 
 	if (receiveControlPackage(CTRL_PKG_END, &fileSize) == -1) {
 		printf("ERROR: Failed to receive the END control package.\n");

@@ -129,7 +129,7 @@ int llopen(int fd, int mode) {
 }
 
 int llwrite(int fd, unsigned char *buffer, int length) {
-	
+
 }
 
 int llread(int fd, unsigned char *buffer) {
