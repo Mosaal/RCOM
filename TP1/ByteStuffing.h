@@ -9,7 +9,7 @@ unsigned char *stuff(unsigned char *buf, int length) {
   int i, j = 0;
   unsigned char *stuffed = (unsigned char *)malloc(length*2);
   for(i = 0; i < length; i++) {
-    if(buf[i] == FLAG) {
+    if(buf[i] == FLAG && i != 0 && i != (length-1)) {
       stuffed[j] = ESCAPE;
       stuffed[j+1] = FLAG ^ 0x20;
       j = j+2;
