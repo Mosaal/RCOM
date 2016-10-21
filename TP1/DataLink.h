@@ -56,12 +56,39 @@ unsigned char *createCommand(int command) {
 	case DISC:
 		buf[2] = C_DISC;
 		break;
+	case RR:
+		break;
+	case REJ:
+		break;
 	}
 
 	buf[3] = buf[1] ^ buf[2];
 	buf[4] = FLAG;
 
 	return buf;
+}
+
+unsigned char *createFrame(unsigned char *buffer, int length) {
+	int i;
+	unsigned char BCC2 = 0x00;
+
+	FRAME_SIZE = length + 6;
+	unsigned char *frame = (unsigned char *)malloc(length + 6);
+
+	frame[0] = FLAG;
+	frame[1] = A;
+	frame[2] = dl->ns << 6;
+	frame[3] = frame[1] ^ frame[2];
+
+	for (i = 0; i < length; i++) {
+		BCC2 ^= buffer[i];
+		frame[i + 4] = buffer[i];
+	}
+
+	frame[length + 4] = BCC2;
+	frame[length + 5] = FLAG;
+
+	return frame;
 }
 
 int llopen(int fd, int mode) {
@@ -129,11 +156,43 @@ int llopen(int fd, int mode) {
 }
 
 int llwrite(int fd, unsigned char *buffer, int length) {
+	int res = 0;
+	unsigned char x, flag;
+	unsigned char answer[5];
 
+	FRAME = createFrame(buffer, length);
+
+	// stuff it
+	(void)signal(SIGALRM, send);
+	alarm(dl->timeout);
+
+	if (write(fd, FRAME, FRAME_SIZE) == -1)
+		return -1;
+
+	STOP = FALSE;
+	while (STOP == FALSE) {
+		res += read(fd, &x, 1);
+
+		if (res == 1)
+			flag = x;
+		if (x == flag && res > 1)
+			STOP = TRUE;
+
+		answer[res - 1] = x;
+	}
+
+	if (answer[3] == (A ^ C_RR)) {
+		alarm(0);
+		triesSend = 0;
+		return FRAME_SIZE;
+	} else if (answer[3] == (A ^ C_REJ)) {
+		alarm(0);
+		return -1;
+	}
 }
 
-int llread(int fd, unsigned char *buffer) {
-
+int llread(int fd, unsigned char **buffer) {
+	
 }
 
 int llclose(int fd, int mode) {

@@ -16,27 +16,6 @@ void printBuffer(unsigned char *buf, int size) {
 		printf("0x%02x ", buf[i]);
 }
 
-unsigned char *createFrame(int C, unsigned char *buffer, int length) {
-	int i;
-	unsigned char BCC2 = 0x00;
-	unsigned char *frame = (unsigned char *)malloc(length + 6);
-
-	frame[0] = FLAG;
-	frame[1] = A;
-	frame[2] = C;
-	frame[3] = frame[1] ^ frame[2];
-
-	for (i = 0; i < length; i++) {
-		BCC2 ^= buffer[i];
-		frame[i + 4] = buffer[i];
-	}
-
-	frame[length + 4] = BCC2;
-	frame[length + 5] = FLAG;
-
-	return frame;
-}
-
 int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 	int i, FRAME_SIZE = CTRL_PKG_SIZE + 6;
 	unsigned char ctrlPackage[CTRL_PKG_SIZE];
@@ -48,9 +27,7 @@ int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 	for (i = 0; i < length; i++)
 		ctrlPackage[i + 3] = buffer[i];
 
-	unsigned char *frame = createFrame(ctrl, ctrlPackage, CTRL_PKG_SIZE);
-
-	if (write(app->fd, frame, FRAME_SIZE) == -1)
+	if (llwrite(app->fd, dataPackage, length + DATA_PKG_SIZE) == -1)
 		return -1;
 	
 	if (ctrl == CTRL_PKG_START)
@@ -73,9 +50,7 @@ int sendDataPackage(int N, unsigned char *buffer, int length) {
 	for (i = 0; i < length; i++)
 		dataPackage[i + 4] = buffer[i];
 
-	unsigned char *frame = createFrame(N << 6, dataPackage, length + DATA_PKG_SIZE);
-
-	if (write(app->fd, frame, FRAME_SIZE) == -1)
+	if (llwrite(app->fd, dataPackage, length + DATA_PKG_SIZE) == -1)
 		return -1;
 
 	return 0;
@@ -84,7 +59,10 @@ int sendDataPackage(int N, unsigned char *buffer, int length) {
 int receiveControlPackage(int ctrl, long int *size) {
 	unsigned char x, flag;
 	int res = 0, var = FALSE;
-	unsigned char answer[CTRL_PKG_SIZE + 6];
+	unsigned char *answer = (unsigned char *)malloc(CTRL_PKG_SIZE + 6);
+
+	if (llread(app->fd, &answer) == -1)
+		return -1;
 
 	while (var == FALSE) {
 		res += read(app->fd, &x, 1);
@@ -113,7 +91,18 @@ int receiveControlPackage(int ctrl, long int *size) {
 	return 0;
 }
 
-int receiveDataPackage() {
+int receiveDataPackage(unsigned char *buf) {
+	int readBytes = 0;
+	unsigned char *package;
+
+	readBytes = llread(app->fd, &package);
+	if (readBytes == -1)
+		return -1;
+
+	// check if correct
+	// if yes send RR
+	// then send REJ
+
 	int size = 0;
 	int numBytes = 0, res = 0;
 	unsigned char fileBuf[MAX_SIZE + 10];
@@ -177,8 +166,6 @@ int sendFile(FILE *file) {
 		printf("ERROR: Failed to send the START control package.\n");
 		return -1;
 	}
-	
-	// wait for response
 
 	unsigned char fileBuf[MAX_SIZE];
 	size_t readBytes = 0, writtenBytes = 0, i = 0;
@@ -187,8 +174,6 @@ int sendFile(FILE *file) {
 			printf("ERROR: Failed to send one of the DATA packages.\n");
 			return -1;
 		}
-
-		// wait for response
 
 		memset(fileBuf, 0, MAX_SIZE);
 		writtenBytes += readBytes;
@@ -200,13 +185,11 @@ int sendFile(FILE *file) {
 		printf("ERROR: Failed to send the START control package.\n");
 		return -1;
 	}
-	
-	// wait for response
 
 	return 0;
 }
 
-int receiveFile() {
+int receiveFile(FILE *file) {
 	long int fileSize;
 	if (receiveControlPackage(CTRL_PKG_START, &fileSize) == -1) {
 		printf("ERROR: Failed to receive the START control package.\n");
@@ -214,10 +197,11 @@ int receiveFile() {
 	}
 
 	printf("size = %ld\n", fileSize);
+	unsigned char tempBuf[MAX_SIZE], fileBuf[fileSize];
 
-	int readBytes = 0, receivedBytes = 0;
-	while ((receivedBytes = receiveDataPackage()) != fileSize) {
-		printf("receivedBytes = %d\n", receivedBytes);
+	size_t readBytes = 0, receivedBytes = 0, i = 0;
+	while ((receivedBytes = receiveDataPackage(tempBuf)) != fileSize) {
+		printf("receivedBytes = %lu\n", receivedBytes);
 		readBytes += receivedBytes;
 		printProgress(readBytes, fileSize);
 	}
@@ -273,22 +257,22 @@ int initApplication(int mode, char *port, char *fileName) {
 			return -1;
 		}
 	} else if (app->mode == RECEIVE) {
-		/*FILE *file;
+		FILE *file;
 		file = fopen(app->fileName, "wb");
 		if (file == NULL) {
 			printf("ERROR: Failed to create file \"%s\".\n", app->fileName);
 			return -1;
-		}*/
+		}
 
-		if (receiveFile() == -1) {
+		if (receiveFile(file) == -1) {
 			printf("ERROR: Failed to receive file \"%s\".\n", app->fileName);
 			return -1;
 		}
 
-		/*if (fclose(file) != 0) {
+		if (fclose(file) != 0) {
 			printf("ERROR: Failed to close file \"%s\".\n", app->fileName);
 			return -1;
-		}*/
+		}
 	}
 
 	if (llclose(app->fd, app->mode) == -1) {

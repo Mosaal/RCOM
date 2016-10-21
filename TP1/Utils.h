@@ -10,6 +10,8 @@
 #define UA               0
 #define SET              1
 #define DISC             2
+#define RR               3
+#define REJ              4
 
 #define A                0x03
 #define FLAG             0x7E
@@ -19,6 +21,8 @@
 #define C_UA             0x03
 #define C_SET            0x07
 #define C_DISC           0x0B
+#define C_RR             0x05
+#define C_REJ            0x01
 
 #define START            0
 #define FLAG_RCV         1
@@ -59,6 +63,8 @@ typedef struct {
 
 DataLink *dl;
 Application *app;
+
+volatile int FRAME_SIZE;
 
 long int getFileSize(char *fileName) {
 	struct stat st;
