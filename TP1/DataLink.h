@@ -57,8 +57,10 @@ unsigned char *createCommand(int command) {
 		buf[2] = C_DISC;
 		break;
 	case RR:
+		buf[2] = C_RR;
 		break;
 	case REJ:
+		buf[2] = C_REJ;
 		break;
 	}
 
@@ -84,6 +86,7 @@ unsigned char *createFrame(unsigned char *buffer, int length) {
 		BCC2 ^= buffer[i];
 		frame[i + 4] = buffer[i];
 	}
+	// printf("BCC2 = 0x%02x\n", BCC2);
 
 	frame[length + 4] = BCC2;
 	frame[length + 5] = FLAG;
@@ -156,18 +159,26 @@ int llopen(int fd, int mode) {
 }
 
 int llwrite(int fd, unsigned char *buffer, int length) {
-	int res = 0;
+	int res = 0, newSize = 0;
 	unsigned char x, flag;
 	unsigned char answer[5];
 
-	FRAME = createFrame(buffer, length);
+	unsigned char *frame = createFrame(buffer, length);
+	STUFFED = stuff(frame, FRAME_SIZE, &newSize);
+	STUFFED_SIZE = newSize;
 
-	// stuff it
+	/*printf("original = %d\n", FRAME_SIZE);
+	printf("size = %d\n", newSize);
+	printBuffer(STUFFED, STUFFED_SIZE);
+	printf("\n");*/
+
 	(void)signal(SIGALRM, send);
 	alarm(dl->timeout);
 
-	if (write(fd, FRAME, FRAME_SIZE) == -1)
+	if (write(fd, STUFFED, STUFFED_SIZE) == -1)
 		return -1;
+
+	// printf("AQUI\n");
 
 	STOP = FALSE;
 	while (STOP == FALSE) {
@@ -182,17 +193,133 @@ int llwrite(int fd, unsigned char *buffer, int length) {
 	}
 
 	if (answer[3] == (A ^ C_RR)) {
+		// printf("RECEIVED RR\n");
 		alarm(0);
 		triesSend = 0;
 		return FRAME_SIZE;
 	} else if (answer[3] == (A ^ C_REJ)) {
+		// printf("RECEIVED REJ\n");
 		alarm(0);
 		return -1;
 	}
 }
 
 int llread(int fd, unsigned char **buffer) {
-	
+	int size = 0;
+	volatile int over = FALSE, state = START;
+	unsigned char *fileBuf = (unsigned char *)malloc(sizeof(unsigned char) * ((MAX_SIZE + 10) * 2));
+
+	while (over == FALSE) {
+		unsigned char x;
+
+		if (state != DONE) {
+			if (read(app->fd, &x, 1) == -1)
+				return -1;
+			// printf("x = 0x%02x\n", x);
+		}
+
+		switch (state) {
+		case START:
+			if (x == FLAG) {
+				fileBuf[size++] = x;
+				state = FLAG_RCV;
+			}
+			break;
+		case FLAG_RCV:
+			if (x == A) {
+				fileBuf[size++] = x;
+				state = A_RCV;
+			} else if (x != FLAG) {
+				size = 0;
+				state = START;
+			}
+			break;
+		case A_RCV:
+			if (x != FLAG) {
+				fileBuf[size++] = x;
+				state = C_RCV;
+			} else if (x == FLAG) {
+				size = 1;
+				state = FLAG_RCV;
+			} else {
+				size = 0;
+				state = START;
+			}
+			break;
+		case C_RCV:
+			if (x == (fileBuf[1] ^ fileBuf[2])) {
+				fileBuf[size++] = x;
+				state = BCC_OK;
+			} else if (x == FLAG) {
+				size = 1;
+				state = FLAG_RCV;
+			} else {
+				size = 0;
+				state = START;
+			}
+			break;
+		case BCC_OK:
+			if (x == FLAG) {
+				fileBuf[size++] = x;
+				state = DONE;
+			} else if (x != FLAG) {
+				fileBuf[size++] = x;
+			}
+			break;
+		case DONE:
+			over = TRUE;
+			break;
+		}
+	}
+
+	int k;
+	unsigned char *destuffed = destuff(fileBuf, size);
+	unsigned char BCC2 = 0x00;
+
+	if (destuffed[3] != (destuffed[1] ^ destuffed[2])) {
+		COMMAND = createCommand(REJ);
+
+		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
+			printf("ERROR: Failed to send REJ buffer.\n");
+			return -1;
+		}
+	} else if (destuffed[2] != C_SET && destuffed[2] != C_UA && destuffed[2] != C_DISC && destuffed[2] != C_RR && destuffed[2] != C_REJ) {
+		int i;
+
+		if (destuffed[4] == CTRL_PKG_START || destuffed[4] == CTRL_PKG_END)
+			k = destuffed[6] + 3;
+		else if (destuffed[4] == CTRL_PKG_DATA)
+			k = (destuffed[6] * 256) + destuffed[7] + 4;
+
+		// printf("k = %d\n", k);
+		for (i = 0; i < k; i++) {
+			// printf("0x%02x\n", destuffed[i + 4]);
+			BCC2 ^= destuffed[i + 4];
+		}
+		// printf("BCC2 = 0x%02x\n", BCC2);
+		// printf("7 + k = 0x%02x\n", destuffed[7 + k]);
+
+		if (BCC2 != destuffed[4 + k]) {
+			COMMAND = createCommand(REJ);
+
+			// printf("SENT REJ\n");
+			if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
+				printf("ERROR: Failed to send REJ buffer.\n");
+				return -1;
+			}
+		} else {
+			COMMAND = createCommand(RR);
+
+			// printf("SENT RR\n");
+			if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
+				printf("ERROR: Failed to send RR buffer.\n");
+				return -1;
+			}
+		}
+	}
+
+	*buffer = destuffed;
+	return k - 4;
 }
 
 int llclose(int fd, int mode) {

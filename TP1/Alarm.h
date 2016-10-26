@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include "Utils.h"
 
-unsigned char *COMMAND, *FRAME;
+unsigned char *COMMAND, *STUFFED;
 int triesSend = 0, triesConnect = 0;
 
 void connect() {
@@ -25,7 +25,7 @@ void connect() {
 void send() {
 	if (triesSend < dl->retries) {
 		printf("No response. Tries left = %d\n", dl->retries - triesSend);
-		write(app->fd, FRAME, FRAME_SIZE);
+		write(app->fd, STUFFED, STUFFED_SIZE);
 		triesSend++;
 		alarm(dl->timeout);
 	} else {

@@ -10,14 +10,8 @@
 #include "DataLink.h"
 #include "ByteStuffing.h"
 
-void printBuffer(unsigned char *buf, int size) {
-	int i;
-	for (i = 0; i < size; i++)
-		printf("0x%02x ", buf[i]);
-}
-
 int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
-	int i, FRAME_SIZE = CTRL_PKG_SIZE + 6;
+	int i;
 	unsigned char ctrlPackage[CTRL_PKG_SIZE];
 
 	ctrlPackage[0] = ctrl;
@@ -27,7 +21,7 @@ int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 	for (i = 0; i < length; i++)
 		ctrlPackage[i + 3] = buffer[i];
 
-	if (llwrite(app->fd, dataPackage, length + DATA_PKG_SIZE) == -1)
+	if (llwrite(app->fd, ctrlPackage, CTRL_PKG_SIZE) == -1)
 		return -1;
 	
 	if (ctrl == CTRL_PKG_START)
@@ -59,25 +53,14 @@ int sendDataPackage(int N, unsigned char *buffer, int length) {
 int receiveControlPackage(int ctrl, long int *size) {
 	unsigned char x, flag;
 	int res = 0, var = FALSE;
-	unsigned char *answer = (unsigned char *)malloc(CTRL_PKG_SIZE + 6);
+	unsigned char *answer;
 
 	if (llread(app->fd, &answer) == -1)
 		return -1;
 
-	while (var == FALSE) {
-		res += read(app->fd, &x, 1);
-
-		if (res == 1)
-			flag = x;
-		if (x == flag && res == (CTRL_PKG_SIZE + 6))
-			var = TRUE;
-
-		answer[res - 1] = x;
-	}
-
-	if (answer[3] == (A ^ CTRL_PKG_START) && answer[4] == CTRL_PKG_START)
+	if (answer[4] == CTRL_PKG_START)
 		printf("Received START control package.\n");
-	else if (answer[3] == (A ^ CTRL_PKG_END) && answer[4] == CTRL_PKG_END)
+	else if (answer[4] == CTRL_PKG_END)
 		printf("Received END control package\n");
 	else
 		return -1;
@@ -92,75 +75,26 @@ int receiveControlPackage(int ctrl, long int *size) {
 }
 
 int receiveDataPackage(unsigned char *buf) {
-	int readBytes = 0;
+	int i, readBytes = 0;
 	unsigned char *package;
 
 	readBytes = llread(app->fd, &package);
 	if (readBytes == -1)
 		return -1;
 
-	// check if correct
-	// if yes send RR
-	// then send REJ
+	for (i = 0; i < readBytes; i++)
+		buf[i] = package[i + 8];
 
-	int size = 0;
-	int numBytes = 0, res = 0;
-	unsigned char fileBuf[MAX_SIZE + 10];
-	volatile int over = FALSE, state = START;
-
-	while (over == FALSE) {
-		unsigned char x;
-
-		if (state != DONE)
-			res = read(app->fd, &x, 1);
-		if (size == 8)
-			numBytes = fileBuf[6] * 256 + fileBuf[7];
-
-		switch (state) {
-		case START:
-			if (x == FLAG) {
-				fileBuf[size++] = x;
-				state = FLAG_RCV;
-			}
-			break;
-		case FLAG_RCV:
-			if (x == A) {
-				fileBuf[size++] = x;
-				state = A_RCV;
-			}
-			break;
-		case A_RCV:
-			if (x != FLAG) {
-				fileBuf[size++] = x;
-				state = C_RCV;
-			}
-			break;
-		case C_RCV:
-			if (x == (fileBuf[1] ^ fileBuf[2])) {
-				fileBuf[size++] = x;
-				state = BCC_OK;
-			}
-			break;
-		case BCC_OK:
-			if (x == FLAG && size == (numBytes + 9)) {
-				fileBuf[size++] = x;
-				state = DONE;
-			} else {
-				fileBuf[size++] = x;
-			}
-			break;
-		case DONE:
-			over = TRUE;
-			break;
-		}
-	}
-
-	return size - 10;
+	return readBytes;
 }
 
 int sendFile(FILE *file) {
 	long int fileSize = getFileSize(app->fileName);
 	unsigned char *fileSizeBuf = (unsigned char *)&fileSize;
+
+	// printf("size = %ld\n", fileSize);
+	// printBuffer(fileSizeBuf, 8);
+	// printf("\n");
 
 	if (sendControlPackage(CTRL_PKG_START, fileSizeBuf, sizeof(fileSizeBuf)) == -1) {
 		printf("ERROR: Failed to send the START control package.\n");
@@ -196,18 +130,18 @@ int receiveFile(FILE *file) {
 		return -1;
 	}
 
-	printf("size = %ld\n", fileSize);
-	unsigned char tempBuf[MAX_SIZE], fileBuf[fileSize];
+	// printf("fileSize = %lu\n", fileSize);
+	unsigned char tempBuf[MAX_SIZE];//, fileBuf[fileSize];
 
 	size_t readBytes = 0, receivedBytes = 0, i = 0;
-	while ((receivedBytes = receiveDataPackage(tempBuf)) != fileSize) {
-		printf("receivedBytes = %lu\n", receivedBytes);
+	while (readBytes != fileSize) {
+		receivedBytes = receiveDataPackage(tempBuf);
+
+		fwrite(tempBuf, 1, receivedBytes, file);
+
 		readBytes += receivedBytes;
 		printProgress(readBytes, fileSize);
 	}
-
-	if (receivedBytes == fileSize)
-		printProgress(receivedBytes, fileSize);
 
 	if (receiveControlPackage(CTRL_PKG_END, &fileSize) == -1) {
 		printf("ERROR: Failed to receive the END control package.\n");

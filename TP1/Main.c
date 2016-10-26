@@ -34,14 +34,19 @@ int processArguments(char **argv) {
 		return -1;
 	}
 
-	FILE *file;
-	file = fopen(argv[3], "r");
-	if (file == NULL) {
-		printf("ERROR: File \"%s\" does not exist.\n", argv[3]);
-		printUsage(argv[0]);
-		return -1;
-	} else {
-		fclose(file);
+	if (mode == SEND) {
+		FILE *file;
+		file = fopen(argv[3], "r");
+
+		if (file == NULL) {
+			printf("ERROR: File \"%s\" does not exist.\n", argv[3]);
+			printUsage(argv[0]);
+			return -1;
+		} else {
+			fclose(file);
+			fileName = argv[3];
+		}
+	} else if (mode == RECEIVE) {
 		fileName = argv[3];
 	}
 

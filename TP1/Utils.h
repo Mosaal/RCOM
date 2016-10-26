@@ -64,7 +64,7 @@ typedef struct {
 DataLink *dl;
 Application *app;
 
-volatile int FRAME_SIZE;
+volatile int FRAME_SIZE, STUFFED_SIZE;
 
 long int getFileSize(char *fileName) {
 	struct stat st;
@@ -74,6 +74,12 @@ long int getFileSize(char *fileName) {
 
 	printf("ERROR: Could not get file size.\n");
 	return -1;
+}
+
+void printBuffer(unsigned char *buf, int size) {
+	int i;
+	for (i = 0; i < size; i++)
+		printf("0x%02x ", buf[i]);
 }
 
 void printProgress(float curr, float total) {
@@ -88,7 +94,7 @@ void printProgress(float curr, float total) {
 			printf(" ");
 	}
 
-	printf("]\n");
+	printf("]\r");
 }
 
 #endif
