@@ -95,6 +95,7 @@ void printProgress(float curr, float total) {
 	}
 
 	printf("]\r");
+	fflush(stdout);
 }
 
 #endif

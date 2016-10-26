@@ -27,7 +27,7 @@ int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 	if (ctrl == CTRL_PKG_START)
 		printf("Sent START control package.\n");
 	else if (ctrl == CTRL_PKG_END)
-		printf("Sent END control package.\n");
+		printf("\nSent END control package.\n");
 
 	return 0;
 }
@@ -61,7 +61,7 @@ int receiveControlPackage(int ctrl, long int *size) {
 	if (answer[4] == CTRL_PKG_START)
 		printf("Received START control package.\n");
 	else if (answer[4] == CTRL_PKG_END)
-		printf("Received END control package\n");
+		printf("\nReceived END control package\n");
 	else
 		return -1;
 
@@ -116,7 +116,7 @@ int sendFile(FILE *file) {
 	}
 
 	if (sendControlPackage(CTRL_PKG_END, fileSizeBuf, sizeof(fileSizeBuf)) == -1) {
-		printf("ERROR: Failed to send the START control package.\n");
+		printf("ERROR: Failed to send the END control package.\n");
 		return -1;
 	}
 
@@ -131,7 +131,7 @@ int receiveFile(FILE *file) {
 	}
 
 	// printf("fileSize = %lu\n", fileSize);
-	unsigned char tempBuf[MAX_SIZE];//, fileBuf[fileSize];
+	unsigned char tempBuf[MAX_SIZE]; //, fileBuf[fileSize];
 
 	size_t readBytes = 0, receivedBytes = 0, i = 0;
 	while (readBytes != fileSize) {
