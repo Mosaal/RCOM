@@ -264,6 +264,7 @@ int llread(int fd, unsigned char **buffer) {
 			}
 			break;
 		case DONE:
+			fileBuf[size] = 0;
 			over = TRUE;
 			break;
 		}

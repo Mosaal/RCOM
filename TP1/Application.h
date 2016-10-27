@@ -148,6 +148,7 @@ int receiveFile(FILE *file) {
 			continue;
 		}
 
+		stats->frameReceived++;
 		fwrite(tempBuf, 1, receivedBytes, file);
 		memset(tempBuf, 0, MAX_SIZE);
 
