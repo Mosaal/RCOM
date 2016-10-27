@@ -41,7 +41,7 @@ int initDataLink() {
 }
 
 unsigned char *createCommand(int command) {
-	unsigned char *buf = (unsigned char *)malloc(5);
+	unsigned char *buf = (unsigned char *)malloc(COMMAND_SIZE);
 
 	buf[0] = FLAG;
 	buf[1] = A;
@@ -86,7 +86,6 @@ unsigned char *createFrame(unsigned char *buffer, int length) {
 		BCC2 ^= buffer[i];
 		frame[i + 4] = buffer[i];
 	}
-	// printf("BCC2 = 0x%02x\n", BCC2);
 
 	frame[length + 4] = BCC2;
 	frame[length + 5] = FLAG;
@@ -97,7 +96,7 @@ unsigned char *createFrame(unsigned char *buffer, int length) {
 int llopen(int fd, int mode) {
 	int res = 0;
 	unsigned char x, flag;
-	unsigned char answer[5];
+	unsigned char answer[COMMAND_SIZE];
 
 	switch (mode) {
 	case SEND:
@@ -164,22 +163,16 @@ int llopen(int fd, int mode) {
 int llwrite(int fd, unsigned char *buffer, int length) {
 	int res = 0, newSize = 0;
 	unsigned char x, flag;
-	unsigned char answer[5];
+	unsigned char answer[COMMAND_SIZE];
 
 	unsigned char *frame = createFrame(buffer, length);
 	STUFFED = stuff(frame, FRAME_SIZE, &newSize);
 	STUFFED_SIZE = newSize;
 
-	/*printf("original = %d\n", FRAME_SIZE);
-	printf("size = %d\n", newSize);
-	printBuffer(STUFFED, STUFFED_SIZE);
-	printf("\n");*/
-
 	(void)signal(SIGALRM, send);
 	alarm(dl->timeout);
 
 	write(fd, STUFFED, STUFFED_SIZE);
-
 
 	STOP = FALSE;
 	while (STOP == FALSE) {
@@ -196,14 +189,14 @@ int llwrite(int fd, unsigned char *buffer, int length) {
 	}
 
 	if (answer[3] == (A ^ C_RR)) {
-		//printf("RECEIVED RR\n");
 		alarm(0);
 		triesSend = 0;
+		free(STUFFED);
 		return STUFFED_SIZE;
 	} else if (answer[3] == (A ^ C_REJ)) {
-		//printf("RECEIVED REJ\n");
 		alarm(0);
 		triesSend = 0;
+		stats->rejReceived++;
 		return -2;
 	}
 
@@ -212,7 +205,7 @@ int llwrite(int fd, unsigned char *buffer, int length) {
 int llread(int fd, unsigned char **buffer) {
 	int size = 0;
 	volatile int over = FALSE, state = START;
-	unsigned char *fileBuf = (unsigned char *)malloc(sizeof(unsigned char) * ((MAX_SIZE + 10) * 2));
+	unsigned char *fileBuf = (unsigned char *)malloc((MAX_SIZE + 10) * 2);
 
 	while (over == FALSE) {
 		unsigned char x;
@@ -220,7 +213,6 @@ int llread(int fd, unsigned char **buffer) {
 		if (state != DONE) {
 			if (read(app->fd, &x, 1) == -1)
 				return -1;
-			// printf("x = 0x%02x\n", x);
 		}
 
 		switch (state) {
@@ -283,6 +275,7 @@ int llread(int fd, unsigned char **buffer) {
 
 	if (destuffed[3] != (destuffed[1] ^ destuffed[2])) {
 		COMMAND = createCommand(REJ);
+		stats->rejSent++;
 
 		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send REJ buffer.\n");
@@ -298,18 +291,13 @@ int llread(int fd, unsigned char **buffer) {
 		else if (destuffed[4] == CTRL_PKG_DATA)
 			k = (destuffed[6] * 256) + destuffed[7] + 4;
 
-		// printf("k = %d\n", k);
-		for (i = 0; i < k; i++) {
-			// printf("0x%02x\n", destuffed[i + 4]);
+		for (i = 0; i < k; i++)
 			BCC2 ^= destuffed[i + 4];
-		}
-		// printf("BCC2 = 0x%02x\n", BCC2);
-		// printf("7 + k = 0x%02x\n", destuffed[7 + k]);
 
 		if (BCC2 != destuffed[4 + k]) {
 			COMMAND = createCommand(REJ);
+			stats->rejSent++;
 
-			// printf("SENT REJ\n");
 			if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 				printf("ERROR: Failed to send REJ buffer.\n");
 				return -1;
@@ -319,7 +307,6 @@ int llread(int fd, unsigned char **buffer) {
 		} else {
 			COMMAND = createCommand(RR);
 
-			// printf("SENT RR\n");
 			if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 				printf("ERROR: Failed to send RR buffer.\n");
 				return -1;
@@ -327,14 +314,16 @@ int llread(int fd, unsigned char **buffer) {
 		}
 	}
 
+	free(fileBuf);
 	*buffer = destuffed;
+
 	return k - 4;
 }
 
 int llclose(int fd, int mode) {
 	int res = 0;
 	unsigned char x, flag;
-	unsigned char answer[5];
+	unsigned char answer[COMMAND_SIZE];
 
 	switch (mode) {
 	case SEND:
@@ -383,8 +372,6 @@ int llclose(int fd, int mode) {
 
 			answer[res - 1] = x;
 		}
-		// printf("DISC\n");
-		// printBuffer(answer, 5);
 
 		if (answer[3] != (A ^ C_DISC)) {
 			printf("ERROR: Failure on closing connection.\n");
@@ -411,8 +398,6 @@ int llclose(int fd, int mode) {
 
 			answer[res - 1] = x;
 		}
-		// printf("UA\n");
-		// printBuffer(answer, 5);
 
 		if (answer[3] != (A ^ C_UA)) {
 			printf("ERROR: Failure on closing connection.\n");

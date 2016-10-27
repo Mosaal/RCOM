@@ -11,26 +11,28 @@ int triesSend = 0, triesConnect = 0;
 
 void connect() {
 	if (triesConnect < dl->retries) {
-		printf("No response. Tries left = %d\n", dl->retries - triesConnect);
+		printf("\nNo response. Tries left = %d\n", dl->retries - triesConnect);
 		write(app->fd, COMMAND, COMMAND_SIZE);
 		triesConnect++;
 		alarm(dl->timeout);
 	} else {
 		alarm(0);
-		printf("ERROR: Failed to create a connection.\n");
+		printf("\nERROR: Failed to create a connection.\n");
 		exit(-1);
 	}
 }
 
 void send() {
 	if (triesSend < dl->retries) {
-		printf("No response. Tries left = %d\n", dl->retries - triesSend);
+		printf("\nNo response. Tries left = %d\n", dl->retries - triesSend);
 		write(app->fd, STUFFED, STUFFED_SIZE);
 		triesSend++;
+		stats->frameResent++;
+		stats->numberTimeout++;
 		alarm(dl->timeout);
 	} else {
 		alarm(0);
-		printf("ERROR: Failed to send frame.\n");
+		printf("\nERROR: Failed to send frame.\n");
 		exit(-1);
 	}
 }

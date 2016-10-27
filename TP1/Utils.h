@@ -43,7 +43,7 @@
 #define PARAM_FILE_NAME  1
 
 #define _POSIX_SOURCE    1
-#define PROGRESS_BAR     40
+#define PROGRESS_BAR     45
 #define MAX_SIZE         512
 #define BAUDRATE         B38400
 
@@ -61,8 +61,15 @@ typedef struct {
 	struct termios oldtio, newtio;
 } DataLink;
 
+typedef struct {
+	int numberTimeout;
+	int rejSent, rejReceived;
+	int frameSent, frameResent, frameReceived;
+} Statistics;
+
 DataLink *dl;
 Application *app;
+Statistics *stats;
 
 volatile int FRAME_SIZE, STUFFED_SIZE;
 
@@ -96,6 +103,16 @@ void printProgress(float curr, float total) {
 
 	printf("]\r");
 	fflush(stdout);
+}
+
+void printStatistics() {
+	printf("\n - Statistics - \n");
+	printf(" # Number of timeouts: %d\n", stats->numberTimeout);
+	printf(" # Number of REJs sent: %d\n", stats->rejSent);
+	printf(" # Number of REJs received: %d\n", stats->rejReceived);
+	printf(" # Number of Frames sent: %d\n", stats->frameSent);
+	printf(" # Number of Frames resent: %d\n", stats->frameResent);
+	printf(" # Number of Frames received: %d\n", stats->frameReceived);
 }
 
 #endif

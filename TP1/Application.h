@@ -33,7 +33,7 @@ int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 }
 
 int sendDataPackage(int N, unsigned char *buffer, int length) {
-	int i, FRAME_SIZE = length + DATA_PKG_SIZE + 6;
+	int i;
 	unsigned char dataPackage[length + DATA_PKG_SIZE];
 
 	dataPackage[0] = CTRL_PKG_DATA;
@@ -55,8 +55,6 @@ int sendDataPackage(int N, unsigned char *buffer, int length) {
 }
 
 int receiveControlPackage(int ctrl, long int *size) {
-	unsigned char x, flag;
-	int res = 0, var = FALSE;
 	unsigned char *answer;
 
 	if (llread(app->fd, &answer) == -1)
@@ -65,7 +63,7 @@ int receiveControlPackage(int ctrl, long int *size) {
 	if (answer[4] == CTRL_PKG_START)
 		printf("Received START control package.\n");
 	else if (answer[4] == CTRL_PKG_END)
-		printf("\nReceived END control package\n");
+		printf("\nReceived END control package.\n");
 	else
 		return -1;
 
@@ -100,10 +98,6 @@ int sendFile(FILE *file) {
 	unsigned char *fileSizeBuf = (unsigned char *)&fileSize;
 	int aux;
 
-	// printf("size = %ld\n", fileSize);
-	// printBuffer(fileSizeBuf, 8);
-	// printf("\n");
-
 	if (sendControlPackage(CTRL_PKG_START, fileSizeBuf, sizeof(fileSizeBuf)) == -1) {
 		printf("ERROR: Failed to send the START control package.\n");
 		return -1;
@@ -118,9 +112,13 @@ int sendFile(FILE *file) {
 			printf("ERROR: Failed to send one of the DATA packages.\n");
 			return -1;
 		} else if(aux == -2) {
-			while(sendDataPackage(i++, fileBuf, readBytes) == -2)
-			continue;
+			while(sendDataPackage(i++, fileBuf, readBytes) == -2) {
+				stats->frameResent++;
+				continue;
+			}
 		}
+		stats->frameSent++;
+
 		memset(fileBuf, 0, MAX_SIZE);
 		writtenBytes += readBytes;
 
@@ -142,22 +140,18 @@ int receiveFile(FILE *file) {
 		return -1;
 	}
 
-	printf("fileSize = %lu\n", fileSize);
-	unsigned char tempBuf[MAX_SIZE]; //, fileBuf[fileSize];
-
+	unsigned char tempBuf[MAX_SIZE];
 	size_t readBytes = 0, receivedBytes = 0, i = 0;
-	while (readBytes != fileSize) {
+	while (readBytes < fileSize) {
 		if ((receivedBytes = receiveDataPackage(tempBuf)) == -2) {
 			memset(tempBuf, 0, MAX_SIZE);
 			continue;
 		}
 
-		printf("\nreceivedbytes = %lu\n", receivedBytes);
 		fwrite(tempBuf, 1, receivedBytes, file);
 		memset(tempBuf, 0, MAX_SIZE);
 
 		readBytes += receivedBytes;
-		printf("readbytes = %lu\n", readBytes);
 		printProgress(readBytes, fileSize);
 	}
 
@@ -171,11 +165,19 @@ int receiveFile(FILE *file) {
 
 int initApplication(int mode, char *port, char *fileName) {
 	app = (Application *)malloc(sizeof(Application));
+	stats = (Statistics *)malloc(sizeof(Statistics));
 
 	app->mode = mode;
 	app->port = port;
 	app->fileName = fileName;
 	app->fd = open(port, O_RDWR | O_NOCTTY);
+
+	stats->numberTimeout = 0;
+	stats->rejSent = 0;
+	stats->rejReceived = 0;
+	stats->frameSent = 0;
+	stats->frameResent = 0;
+	stats->frameReceived = 0;
 
 	if (app->fd < 0) {
 		printf("ERROR: Failed to open serial port.\n");
@@ -235,6 +237,7 @@ int initApplication(int mode, char *port, char *fileName) {
 	}
 
 	closeSerialPort();
+	printStatistics();
 }
 
 #endif
