@@ -23,7 +23,7 @@ int sendControlPackage(int ctrl, unsigned char *buffer, int length) {
 
 	if (llwrite(app->fd, ctrlPackage, CTRL_PKG_SIZE) == -1)
 		return -1;
-	
+
 	if (ctrl == CTRL_PKG_START)
 		printf("Sent START control package.\n");
 	else if (ctrl == CTRL_PKG_END)
@@ -44,8 +44,12 @@ int sendDataPackage(int N, unsigned char *buffer, int length) {
 	for (i = 0; i < length; i++)
 		dataPackage[i + 4] = buffer[i];
 
-	if (llwrite(app->fd, dataPackage, length + DATA_PKG_SIZE) == -1)
+	int aux = llwrite(app->fd, dataPackage, length + DATA_PKG_SIZE);
+
+	if (aux == -1)
 		return -1;
+	else if(aux == -2)
+		return -2;
 
 	return 0;
 }
@@ -81,6 +85,9 @@ int receiveDataPackage(unsigned char *buf) {
 	readBytes = llread(app->fd, &package);
 	if (readBytes == -1)
 		return -1;
+	else if (readBytes == -2) {
+		return -2;
+	}
 
 	for (i = 0; i < readBytes; i++)
 		buf[i] = package[i + 8];
@@ -91,6 +98,7 @@ int receiveDataPackage(unsigned char *buf) {
 int sendFile(FILE *file) {
 	long int fileSize = getFileSize(app->fileName);
 	unsigned char *fileSizeBuf = (unsigned char *)&fileSize;
+	int aux;
 
 	// printf("size = %ld\n", fileSize);
 	// printBuffer(fileSizeBuf, 8);
@@ -103,12 +111,16 @@ int sendFile(FILE *file) {
 
 	unsigned char fileBuf[MAX_SIZE];
 	size_t readBytes = 0, writtenBytes = 0, i = 0;
+
 	while ((readBytes = fread(fileBuf, sizeof(unsigned char), MAX_SIZE, file)) > 0) {
-		if (sendDataPackage(i++, fileBuf, readBytes) == -1) {
+		aux = sendDataPackage(i++, fileBuf, readBytes);
+		if (aux == -1) {
 			printf("ERROR: Failed to send one of the DATA packages.\n");
 			return -1;
+		} else if(aux == -2) {
+			while(sendDataPackage(i++, fileBuf, readBytes) == -2)
+			continue;
 		}
-
 		memset(fileBuf, 0, MAX_SIZE);
 		writtenBytes += readBytes;
 
@@ -130,21 +142,27 @@ int receiveFile(FILE *file) {
 		return -1;
 	}
 
-	// printf("fileSize = %lu\n", fileSize);
+	printf("fileSize = %lu\n", fileSize);
 	unsigned char tempBuf[MAX_SIZE]; //, fileBuf[fileSize];
 
 	size_t readBytes = 0, receivedBytes = 0, i = 0;
 	while (readBytes != fileSize) {
-		receivedBytes = receiveDataPackage(tempBuf);
+		if ((receivedBytes = receiveDataPackage(tempBuf)) == -2) {
+			memset(tempBuf, 0, MAX_SIZE);
+			continue;
+		}
 
+		printf("\nreceivedbytes = %lu\n", receivedBytes);
 		fwrite(tempBuf, 1, receivedBytes, file);
+		memset(tempBuf, 0, MAX_SIZE);
 
 		readBytes += receivedBytes;
+		printf("readbytes = %lu\n", readBytes);
 		printProgress(readBytes, fileSize);
 	}
 
 	if (receiveControlPackage(CTRL_PKG_END, &fileSize) == -1) {
-		printf("ERROR: Failed to receive the END control package.\n");
+		printf("\nERROR: Failed to receive the END control package.\n");
 		return -1;
 	}
 

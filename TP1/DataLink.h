@@ -114,8 +114,10 @@ int llopen(int fd, int mode) {
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
-			if (res == 1)
+			if (res == 1 && x == FLAG)
 				flag = x;
+			else if (res == 1 && x != FLAG)
+				res = 0;
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
@@ -130,13 +132,13 @@ int llopen(int fd, int mode) {
 		alarm(0);
 		break;
 	case RECEIVE:
-		COMMAND = createCommand(UA);
-
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
-			if (res == 1)
+			if (res == 1 && x == FLAG)
 				flag = x;
+			else if (res == 1 && x != FLAG)
+				res = 0;
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
@@ -148,6 +150,7 @@ int llopen(int fd, int mode) {
 			return -1;
 		}
 
+		COMMAND = createCommand(UA);
 		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send UA buffer.\n");
 			return -1;
@@ -175,17 +178,17 @@ int llwrite(int fd, unsigned char *buffer, int length) {
 	(void)signal(SIGALRM, send);
 	alarm(dl->timeout);
 
-	if (write(fd, STUFFED, STUFFED_SIZE) == -1)
-		return -1;
+	write(fd, STUFFED, STUFFED_SIZE);
 
-	// printf("AQUI\n");
 
 	STOP = FALSE;
 	while (STOP == FALSE) {
 		res += read(fd, &x, 1);
 
-		if (res == 1)
+		if (res == 1 && x == FLAG)
 			flag = x;
+		else if (res == 1 && x != FLAG)
+			res = 0;
 		if (x == flag && res > 1)
 			STOP = TRUE;
 
@@ -193,15 +196,17 @@ int llwrite(int fd, unsigned char *buffer, int length) {
 	}
 
 	if (answer[3] == (A ^ C_RR)) {
-		// printf("RECEIVED RR\n");
+		//printf("RECEIVED RR\n");
 		alarm(0);
 		triesSend = 0;
-		return FRAME_SIZE;
+		return STUFFED_SIZE;
 	} else if (answer[3] == (A ^ C_REJ)) {
-		// printf("RECEIVED REJ\n");
+		//printf("RECEIVED REJ\n");
 		alarm(0);
-		return -1;
+		triesSend = 0;
+		return -2;
 	}
+
 }
 
 int llread(int fd, unsigned char **buffer) {
@@ -283,6 +288,8 @@ int llread(int fd, unsigned char **buffer) {
 			printf("ERROR: Failed to send REJ buffer.\n");
 			return -1;
 		}
+
+		return -2;
 	} else if (destuffed[2] != C_SET && destuffed[2] != C_UA && destuffed[2] != C_DISC && destuffed[2] != C_RR && destuffed[2] != C_REJ) {
 		int i;
 
@@ -307,6 +314,8 @@ int llread(int fd, unsigned char **buffer) {
 				printf("ERROR: Failed to send REJ buffer.\n");
 				return -1;
 			}
+
+			return -2;
 		} else {
 			COMMAND = createCommand(RR);
 
@@ -330,7 +339,6 @@ int llclose(int fd, int mode) {
 	switch (mode) {
 	case SEND:
 		COMMAND = createCommand(DISC);
-
 		if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
 			printf("ERROR: Failed to send DISC buffer.\n");
 			return -1;
@@ -340,8 +348,10 @@ int llclose(int fd, int mode) {
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
-			if (res == 1)
+			if (res == 1 && x == FLAG)
 				flag = x;
+			else if (res == 1 && x != FLAG)
+				res = 0;
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
@@ -364,13 +374,17 @@ int llclose(int fd, int mode) {
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
-			if (res == 1)
+			if (res == 1 && x == FLAG)
 				flag = x;
+			else if (res == 1 && x != FLAG)
+				res = 0;
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
 			answer[res - 1] = x;
 		}
+		// printf("DISC\n");
+		// printBuffer(answer, 5);
 
 		if (answer[3] != (A ^ C_DISC)) {
 			printf("ERROR: Failure on closing connection.\n");
@@ -388,16 +402,20 @@ int llclose(int fd, int mode) {
 		while (STOP == FALSE) {
 			res += read(fd, &x, 1);
 
-			if (res == 1)
+			if (res == 1 && x == FLAG)
 				flag = x;
+			else if (res == 1 && x != FLAG)
+				res = 0;
 			if (x == flag && res > 1)
 				STOP = TRUE;
 
 			answer[res - 1] = x;
 		}
+		// printf("UA\n");
+		// printBuffer(answer, 5);
 
 		if (answer[3] != (A ^ C_UA)) {
-			printf("ERROR: Failure on initial connection.\n");
+			printf("ERROR: Failure on closing connection.\n");
 			return -1;
 		}
 		break;
