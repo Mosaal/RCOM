@@ -260,6 +260,18 @@ int llread(int fd, unsigned char **buffer) {
 				fileBuf[size++] = x;
 				state = DONE;
 			} else if (x != FLAG) {
+				if (size > newMaxSize) {
+					COMMAND = createCommand(REJ);
+					stats->rejSent++;
+
+					if (write(fd, COMMAND, COMMAND_SIZE) == -1) {
+						printf("ERROR: Failed to send REJ buffer.\n");
+						return -1;
+					}
+
+					return -2;
+				}
+				
 				fileBuf[size++] = x;
 			}
 			break;
