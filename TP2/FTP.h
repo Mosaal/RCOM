@@ -2,7 +2,8 @@
 #define FTP_H
 
 typedef struct {
-
+	int dataSocketFd;
+	int controlSocketFd;
 } FTP;
 
 FTP *initFTP();
