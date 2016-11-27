@@ -12,7 +12,7 @@ typedef struct {
 	string user, password;
 } URL;
 
-void initURL(URL *url);
+URL *initURL();
 int parseURL(URL *url, const char *urlString);
 
 #endif
