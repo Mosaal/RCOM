@@ -6,6 +6,4 @@ typedef struct {
 	int controlSocketFd;
 } FTP;
 
-FTP *initFTP();
-
 #endif

@@ -1,2 +1,2 @@
 all:
-	gcc Main.c FTP.c URL.c -o Main
+	gcc Main.c FTP.c URL.c -o Download

@@ -1,7 +1,8 @@
 #ifndef URL_H
 #define URL_H
 
-#define STRING_SIZE 256
+#define PORT         21
+#define STRING_SIZE  256
 
 typedef char string[STRING_SIZE];
 
@@ -11,7 +12,7 @@ typedef struct {
 	string user, password;
 } URL;
 
-URL *initURL();
-int parseURL();
+void initURL(URL *url);
+int parseURL(URL *url, const char *urlString);
 
 #endif
