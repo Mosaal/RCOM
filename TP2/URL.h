@@ -1,8 +1,9 @@
 #ifndef URL_H
 #define URL_H
 
-#define PORT 21
-#define SIZE 256
+#define PORT   21
+#define SIZE   256
+#define REGEXP "ftp://"
 
 #include <string.h>
 #include <stdlib.h>
