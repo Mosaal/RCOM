@@ -3,7 +3,7 @@
 
 #define PORT   21
 #define SIZE   256
-#define REGEXP "ftp://"
+#define REGEXP "ftp://([([A-Za-z0-9])*:([A-Za-z0-9])*@])*([A-Za-z0-9.~-])+/([[A-Za-z0-9/~._-])+"
 
 #include <string.h>
 #include <stdlib.h>
