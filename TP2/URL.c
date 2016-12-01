@@ -9,95 +9,56 @@ URL *initURL() {
 	memset(url->path, 0, sizeof(string));
 	memset(url->host, 0, sizeof(string));
 	memset(url->user, 0, sizeof(string));
-	memset(url->password, 0, sizeof(string));
-	memset(url->fileName, 0, sizeof(string));
+	memset(url->pass, 0, sizeof(string));
 
 	return url;
 }
 
 int parseURL(URL *url, const char *urlString) {
-	int i, size = 0, state = 0;
+	if (strncmp(urlString, "ftp://[", 7) == 0) {
+		int i, size = 0;
 
-	for (i = 0; i < strlen(urlString); i++) {
-		switch (state) {
-			case 0:
-				if (urlString[i] == 'f')
-					state = 1;
-				else
-					state = -1;
+		// Get username
+		for (i = 7; i < strlen(urlString); i++) {
+			if (urlString[i] != ':') {
+				url->user[size++] = urlString[i];
+			} else {
+				size = 0;
 				break;
-			case 1:
-				if (urlString[i] == 't')
-					state = 2;
-				else
-					state = -1;
-				break;
-			case 2:
-				if (urlString[i] == 'p')
-					state = 3;
-				else
-					state = -1;
-				break;
-			case 3:
-				if (urlString[i] == ':')
-					state = 4;
-				else
-					state = -1;
-				break;
-			case 4:
-				if (urlString[i] == '/')
-					state = 5;
-				else
-					state = -1;
-				break;
-			case 5:
-				if (urlString[i] == '/')
-					state = 6;
-				else
-					state = -1;
-				break;
-			case 6:
-				if (urlString[i] == '[')
-					state = 7;
-				else
-					state = -1;
-				break;
-			case 7: // User
-				if (urlString[i] == ':') {
-					size = 0;
-					state = 8;
-				} else
-					url->user[size++] = urlString[i];
-				break;
-			case 8: // Pass
-				if (urlString[i] == '@') {
-					url->password[size] = '@';
-					size = 0;
-					state = 9;
-				} else
-					url->password[size++] = urlString[i];
-				break;
-			case 9:
-				if (urlString[i] == ']')
-					state = 10;
-				else
-					state = -1;
-				break;
-			case 10: // Host
-				if (urlString[i] == '/') {
-					size = 0;
-					state = 11;
-				} else
-					url->host[size++] = urlString[i];
-				break;
-			case 11: // Path
-				url->path[size++] = urlString[i];
-				break;
-			case -1:
-				return state;
+			}
 		}
-		// printf("state = %d\n", state);
+
+		// Get password
+		for (++i; i < strlen(urlString); i++) {
+			if (urlString[i] != '@') {
+				url->pass[size++] = urlString[i];
+			} else {
+				if (urlString[++i] != ']')
+					return -1;
+
+				url->pass[size] = '@';
+				size = 0;
+				break;
+			}
+		}
+
+		// Get host
+		for (++i; i < strlen(urlString); i++) {
+			if (urlString[i] != '/') {
+				url->host[size++] = urlString[i];
+			} else {
+				size = 0;
+				break;
+			}
+		}
+
+		// Get path
+		for (++i; i < strlen(urlString); i++) {
+			url->path[size++] = urlString[i];
+		}
+	} else {
+		return -1;
 	}
 
-	return state;
+	return 0;
 }

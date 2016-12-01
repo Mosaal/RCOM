@@ -7,9 +7,8 @@
 typedef char string[STRING_SIZE];
 
 typedef struct {
-	string fileName;
+	string user, pass;
 	string ip, host, path;
-	string user, password;
 } URL;
 
 URL *initURL();
