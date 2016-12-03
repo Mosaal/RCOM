@@ -15,7 +15,7 @@ void printURLInfo(URL url) {
 
 int main(int argc, char **argv) {
 	if (argc != 2) {
-		printf("WARNING: Wrong number of arguments.\n");
+		printf("ERROR: Wrong number of arguments.\n");
 		printUsage(argv[0]);
 		return -1;
 	}

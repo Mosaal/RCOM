@@ -8,5 +8,67 @@ void initURL(URL *url) {
 }
 
 int parseURL(URL *url, const char *urlString) {
-	
+	if (correctFormat(urlString) == 0) {
+		int index = 7;
+
+		getStringUntilChar(urlString, url->user, ':', &index);
+		getStringUntilChar(urlString, url->pass, ']', &index);
+		getStringUntilChar(urlString, url->host, '/', &index);
+		getStringUntilChar(urlString, url->path, '\0', &index);
+
+		return 0;
+	}
+
+	return -1;
+}
+
+int correctFormat(const char *urlString) {
+	char *tempURL;
+	regmatch_t pmatch[strlen(urlString)];
+	regex_t *regex = (regex_t *)malloc(sizeof(regex_t));
+
+	tempURL = (char *)malloc(strlen(urlString));
+	strcpy(tempURL, urlString);
+
+	int reti;
+	if ((reti = regcomp(regex, REGEXP, REG_EXTENDED)) != 0) {
+		printf("ERROR: URL format is wrong.\n");
+		return -1;
+	}
+
+	if ((reti = regexec(regex, tempURL, strlen(tempURL), pmatch, REG_EXTENDED)) != 0) {
+		printf("ERROR: URL could not execute.\n");
+		return -1;
+	}
+
+	free(regex);
+	free(tempURL);
+
+	return 0;
+}
+
+void getStringUntilChar(const char *urlString, char *string, char c, int *index) {
+	int size = 0;
+	for (; *index < strlen(urlString); (*index)++) {
+		if (urlString[*index] != c) {
+			string[size++] = urlString[*index];
+		} else {
+			(*index)++;
+			break;
+		}
+	}
+}
+
+int getIpByHost(URL *url) {
+	struct hostent *h;
+
+	if ((h = gethostbyname(url->host)) == NULL) {
+		printf("ERROR: Failed to get IP address.\n");
+		return -1;
+	}
+
+	char *ip = inet_ntoa(*((struct in_addr *) h->h_addr));
+	strcpy(url->ip, ip);
+
+	return 0;
 }
