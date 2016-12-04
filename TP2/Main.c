@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "URL.h"
 #include "FTP.h"
 
@@ -20,7 +19,7 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	// Process URL
+	// URL
 	URL url;
 	initURL(&url);
 
@@ -30,9 +29,17 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	printURLInfo(url);
+	if (getIpByHost(&url) == -1) {
+		printUsage(argv[0]);
+		return -1;
+	}
 
-	// Process FTP
+	printURLInfo(url);
+	printf("The IP received to %s was %s\n", url.host, url.ip);
+
+	// FTP
+	FTP ftp;
+	initFTP(&ftp);
 
 	return 0;
 }

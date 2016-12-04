@@ -1,8 +1,13 @@
 #ifndef FTP_H
 #define FTP_H
 
-typedef struct {
+#include "Utils.h"
 
+typedef struct {
+	int dataSocketFd;
+	int controlSocketFd;
 } FTP;
+
+void initFTP(FTP *ftp);
 
 #endif
