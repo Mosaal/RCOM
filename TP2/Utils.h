@@ -9,14 +9,16 @@
 #include <regex.h>
 #include <stdio.h>
 #include <netdb.h>
-#include <string.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-void printProgressBar(float curr, float total) {
+/*void printProgressBar(float curr, float total) {
 	float per = (100.0 * curr) / total;
 	printf("Completed: %6.2f%% [", per);
 
@@ -30,6 +32,6 @@ void printProgressBar(float curr, float total) {
 
 	printf("]\r");
 	fflush(stdout);
-}
+}*/
 
 #endif

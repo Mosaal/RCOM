@@ -6,10 +6,12 @@ void printUsage(char *argv0) {
 }
 
 void printURLInfo(URL url) {
-	printf("User: %s\n", url.user);
-	printf("Pass: %s\n", url.pass);
-	printf("Host: %s\n", url.host);
-	printf("Path: %s\n", url.path);
+	printf("The info retrieved from the URL was:\n");
+	printf(" - User: %s\n", url.user);
+	printf(" - Pass: %s\n", url.pass);
+	printf(" - Host: %s\n", url.host);
+	printf(" - Path: %s\n", url.path);
+	printf(" - File: %s\n", url.file);
 }
 
 int main(int argc, char **argv) {
@@ -35,11 +37,29 @@ int main(int argc, char **argv) {
 	}
 
 	printURLInfo(url);
-	printf("The IP received to %s was %s\n", url.host, url.ip);
+	printf("The IP received to %s was %s.\n\n", url.host, url.ip);
 
 	// FTP
 	FTP ftp;
-	initFTP(&ftp);
+	initFTP(&ftp, url.ip);
+
+	if (ftpLogin(&ftp, url.user, url.pass) == -1) {
+		printf("ERROR: Failed to login.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpCWD(&ftp, url.path) == -1) {
+		printf("ERROR: Failed to change working directory.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpPasv(&ftp) == -1) {
+		printf("ERROR: Failed to enter passive mode.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
 
 	return 0;
 }

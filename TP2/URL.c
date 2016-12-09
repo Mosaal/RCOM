@@ -1,20 +1,33 @@
 #include "URL.h"
 
 void initURL(URL *url) {
+	memset(url->ip, 0, SIZE);
 	memset(url->user, 0, SIZE);
 	memset(url->pass, 0, SIZE);
 	memset(url->host, 0, SIZE);
 	memset(url->path, 0, SIZE);
+	memset(url->file, 0, SIZE);
 }
 
 int parseURL(URL *url, const char *urlString) {
 	if (correctFormat(urlString) == 0) {
-		int index = 7;
+		int i, size = 0, index = 7;
 
 		getStringUntilChar(urlString, url->user, ':', &index);
 		getStringUntilChar(urlString, url->pass, ']', &index);
 		getStringUntilChar(urlString, url->host, '/', &index);
 		getStringUntilChar(urlString, url->path, '\0', &index);
+
+		// retrieve file name
+		for (i = strlen(url->path) - 1; i >= 0; i--) {
+			if (url->path[i] != '/') {
+				url->file[size++] = url->path[i];
+				url->path[i] = 0;
+			} else {
+				reverseString(url->file);
+				break;
+			}
+		}
 
 		return 0;
 	}
@@ -71,4 +84,17 @@ int getIpByHost(URL *url) {
 	strcpy(url->ip, ip);
 
 	return 0;
+}
+
+void reverseString(char *str) {
+	char temp;
+	int i = 0, j = strlen(str) - 1;
+
+	while (i < j) {
+		temp = str[i];
+		str[i] = str[j];
+		str[j] = temp;
+		i++;
+		j--;
+	}
 }
