@@ -76,6 +76,8 @@ int ftpLogin(FTP *ftp, const char *user, const char *pass) {
 		printf("ERROR: Read failure.\n");
 		return -1;
 	}
+
+	return 0;
 }
 
 int ftpCWD(FTP *ftp, const char *path) {
@@ -91,6 +93,8 @@ int ftpCWD(FTP *ftp, const char *path) {
 		printf("ERROR: Read failure.\n");
 		return -1;
 	}
+
+	return 0;
 }
 
 int ftpPasv(FTP *ftp) {
@@ -106,15 +110,145 @@ int ftpPasv(FTP *ftp) {
 		return -1;
 	}
 
-	int port, port1, port2;
-	int ip1, ip2, ip3, ip4;
+	int i = 0, result[6];
 
-	sscanf("227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+	strcpy(pasv, pasv + 27);
+	pasv[strlen(pasv) - 3] = '\0';
+	char *t = strtok(pasv, ",");
+
+	while (t != NULL) {
+		result[i++] = atoi(t);
+		t = strtok(NULL, ",");
+	}
+
 	memset(pasv, 0, sizeof(pasv));
-	sprintf(pasv, "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
+	sprintf(pasv, "%d.%d.%d.%d", result[0], result[1], result[2], result[3]);
 
-	port = (port1 * 256) + port2;
-	printf("IP: %s; PORT: %d\n", pasv, port);
+	int port = (result[4] * 256) + result[5];
+
+	if ((ftp->dataSocketFd = connectSocket(pasv, port)) == -1) {
+		printf("ERROR: Invalid port.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int ftpConfig(FTP *ftp) {
+	char conf[1024] = "mode s\r\n";
+
+	// mode s
+	if (ftpWrite(ftp, conf, strlen(conf)) == -1) {
+		printf("ERROR: Write failure.\n");
+		return -1;
+	}
+
+	if (ftpRead(ftp, conf, sizeof(conf)) == -1) {
+		printf("ERROR: Read failure.\n");
+		return -1;
+	}
+
+	// clean buffer
+	memset(conf, 0, sizeof(conf));
+
+	// type i
+	strcpy(conf, "type i\r\n");
+
+	if (ftpWrite(ftp, conf, strlen(conf)) == -1) {
+		printf("ERROR: Write failure.\n");
+		return -1;
+	}
+
+	if (ftpRead(ftp, conf, sizeof(conf)) == -1) {
+		printf("ERROR: Read failure.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int ftpSize(FTP *ftp, const char *fileName) {
+	char size[1024];
+	sprintf(size, "size %s\r\n", fileName);
+
+	if (ftpWrite(ftp, size, strlen(size)) == -1) {
+		printf("ERROR: Write failure.\n");
+		return -1;
+	}
+
+	if (ftpRead(ftp, size, sizeof(size)) == -1) {
+		printf("ERROR: Read failure.\n");
+		return -1;
+	}
+
+	strcpy(size, size + 4);
+	ftp->fileSize = atoi(size);
+
+	return 0;
+}
+
+int ftpRetr(FTP *ftp, const char *fileName) {
+	char retr[1024];
+	sprintf(retr, "retr %s\r\n", fileName);
+
+	if (ftpWrite(ftp, retr, strlen(retr)) == -1) {
+		printf("ERROR: Write failure.\n");
+		return -1;
+	}
+
+	if (ftpRead(ftp, retr, sizeof(retr)) == -1) {
+		printf("ERROR: Read failure.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int ftpDownload(FTP *ftp, const char *fileName) {
+	FILE *file = fopen(fileName, "wb");
+
+	if (file == NULL) {
+		printf("ERROR: Failed to create file '%s'\n", fileName);
+		return -1;
+	}
+
+	char buf[1024];
+	int readBytes = 0, totalBytes = 0;
+
+	while ((readBytes = read(ftp->dataSocketFd, buf, sizeof(buf)))) {
+		totalBytes += readBytes;
+		fwrite(buf, readBytes, 1, file);
+		printf("\n");
+		printProgress(totalBytes, ftp->fileSize);
+		printf("\n\n");
+	}
+
+	return 0;
+}
+
+int ftpClose(FTP *ftp) {
+	char disc[1024];
+
+	if (ftpRead(ftp, disc, sizeof(disc)) == -1) {
+		printf("ERROR: Read failure.\n");
+		return -1;
+	}
+
+	sprintf(disc, "quit\r\n");
+
+	if (ftpWrite(ftp, disc, strlen(disc)) == -1) {
+		printf("ERROR: Write failure.\n");
+		return -1;
+	}
+
+	if (ftpRead(ftp, disc, sizeof(disc)) == -1) {
+		printf("ERROR: Read failure.\n");
+		return -1;
+	}
+
+	close(ftp->controlSocketFd);
+	
+	return 0;
 }
 
 int ftpRead(FTP *ftp, char *str, size_t size) {
@@ -141,4 +275,20 @@ int ftpWrite(FTP *ftp, char *str, size_t size) {
 	}
 
 	return 0;
+}
+
+void printProgress(float curr, float total) {
+	float per = (100.0 * curr) / total;
+	printf("Completed: %6.2f%% [", per);
+
+	int i, pos = (per * PROGRESS_BAR) / 100.0;
+	for (i = 0; i < PROGRESS_BAR; i++) {
+		if (i <= pos)
+			printf("=");
+		else
+			printf(" ");
+	}
+
+	printf("]\r");
+	fflush(stdout);
 }

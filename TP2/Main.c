@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
 	}
 
 	printURLInfo(url);
-	printf("The IP received to %s was %s.\n\n", url.host, url.ip);
+	printf("The IP received to '%s' was %s.\n\n", url.host, url.ip);
 
 	// FTP
 	FTP ftp;
@@ -57,6 +57,36 @@ int main(int argc, char **argv) {
 
 	if (ftpPasv(&ftp) == -1) {
 		printf("ERROR: Failed to enter passive mode.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpConfig(&ftp) == -1) {
+		printf("ERROR: Failed to configure connection.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpSize(&ftp, url.file) == -1) {
+		printf("ERROR: Failed to get file size.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpRetr(&ftp, url.file) == -1) {
+		printf("ERROR: Failed to start transmission of file.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpDownload(&ftp, url.file) == -1) {
+		printf("ERROR: Failed to receive file.\n");
+		printUsage(argv[0]);
+		return -1;
+	}
+
+	if (ftpClose(&ftp) == -1) {
+		printf("ERROR: Failed to close connection.\n");
 		printUsage(argv[0]);
 		return -1;
 	}

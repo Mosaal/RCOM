@@ -1,7 +1,19 @@
 #ifndef URL_H
 #define URL_H
 
-#include "Utils.h"
+#define SIZE   256
+#define REGEXP "ftp://([([A-Za-z0-9])*:([A-Za-z0-9])*@])*([A-Za-z0-9.~-])+/([[A-Za-z0-9/~._-])+"
+
+#include <stdio.h>
+#include <netdb.h>
+#include <regex.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 typedef struct {
 	char ip[SIZE], host[SIZE];
