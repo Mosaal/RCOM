@@ -10,7 +10,9 @@ void initURL(URL *url) {
 }
 
 int parseURL(URL *url, const char *urlString) {
-	if (correctFormat(urlString) == 0) {
+	int res = correctFormat(urlString);
+
+	if (res == 1) {
 		int i, size = 0, index = 7;
 
 		getStringUntilChar(urlString, url->user, ':', &index);
@@ -28,8 +30,24 @@ int parseURL(URL *url, const char *urlString) {
 				break;
 			}
 		}
+	} else if (res == 2) {
+		int i, size = 0, index = 6;
 
-		return 0;
+		strcpy(url->user, "anonymous");
+		strcpy(url->pass, "guest");
+		getStringUntilChar(urlString, url->host, '/', &index);
+		getStringUntilChar(urlString, url->path, '\0', &index);
+
+		// retrieve file name
+		for (i = strlen(url->path) - 1; i >= 0; i--) {
+			if (url->path[i] != '/') {
+				url->file[size++] = url->path[i];
+				url->path[i] = 0;
+			} else {
+				reverseString(url->file);
+				break;
+			}
+		}
 	}
 
 	return -1;
@@ -43,10 +61,20 @@ int correctFormat(const char *urlString) {
 	tempURL = (char *)malloc(strlen(urlString));
 	strcpy(tempURL, urlString);
 
-	int reti;
-	if ((reti = regcomp(regex, REGEXP, REG_EXTENDED)) != 0) {
-		printf("ERROR: URL format is wrong.\n");
-		return -1;
+	int result = 0, reti;
+
+	if (urlString[6] == '[') {
+		result = 1;
+		if ((reti = regcomp(regex, REGEXP, REG_EXTENDED)) != 0) {
+			printf("ERROR: URL format is wrong.\n");
+			return -1;
+		}
+	} else {
+		result = 2;
+		if ((reti = regcomp(regex, REGANO, REG_EXTENDED)) != 0) {
+			printf("ERROR: URL format is wrong.\n");
+			return -1;
+		}
 	}
 
 	if ((reti = regexec(regex, tempURL, strlen(tempURL), pmatch, REG_EXTENDED)) != 0) {
@@ -57,7 +85,7 @@ int correctFormat(const char *urlString) {
 	free(regex);
 	free(tempURL);
 
-	return 0;
+	return result;
 }
 
 void getStringUntilChar(const char *urlString, char *string, char c, int *index) {
