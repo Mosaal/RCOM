@@ -2,7 +2,7 @@
 #define URL_H
 
 #define SIZE   256
-#define REGANO ""
+#define REGANO "ftp://([A-Za-z0-9.~-])+/([[A-Za-z0-9/~._-])+"
 #define REGEXP "ftp://([([A-Za-z0-9])*:([A-Za-z0-9])*@])*([A-Za-z0-9.~-])+/([[A-Za-z0-9/~._-])+"
 
 #include <stdio.h>
