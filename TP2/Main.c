@@ -79,11 +79,13 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	printf("\n");
 	if (ftpDownload(&ftp, url.file) == -1) {
 		printf("ERROR: Failed to receive file.\n");
 		printUsage(argv[0]);
 		return -1;
 	}
+	printf("\n\n");
 
 	if (ftpClose(&ftp) == -1) {
 		printf("ERROR: Failed to close connection.\n");

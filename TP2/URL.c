@@ -30,6 +30,8 @@ int parseURL(URL *url, const char *urlString) {
 				break;
 			}
 		}
+
+		return 0;
 	} else if (res == 2) {
 		int i, size = 0, index = 6;
 
@@ -48,6 +50,8 @@ int parseURL(URL *url, const char *urlString) {
 				break;
 			}
 		}
+
+		return 0;
 	}
 
 	return -1;
@@ -81,6 +85,8 @@ int correctFormat(const char *urlString) {
 		printf("ERROR: URL could not execute.\n");
 		return -1;
 	}
+
+	printf("%d\n", result);
 
 	free(regex);
 	free(tempURL);

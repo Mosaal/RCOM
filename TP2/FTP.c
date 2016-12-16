@@ -218,9 +218,7 @@ int ftpDownload(FTP *ftp, const char *fileName) {
 	while ((readBytes = read(ftp->dataSocketFd, buf, sizeof(buf)))) {
 		totalBytes += readBytes;
 		fwrite(buf, readBytes, 1, file);
-		printf("\n");
 		printProgress(totalBytes, ftp->fileSize);
-		printf("\n\n");
 	}
 
 	return 0;
