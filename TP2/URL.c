@@ -86,8 +86,6 @@ int correctFormat(const char *urlString) {
 		return -1;
 	}
 
-	printf("%d\n", result);
-
 	free(regex);
 	free(tempURL);
 

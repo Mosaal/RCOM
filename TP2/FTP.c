@@ -221,6 +221,7 @@ int ftpDownload(FTP *ftp, const char *fileName) {
 		printProgress(totalBytes, ftp->fileSize);
 	}
 
+	fclose(file);
 	return 0;
 }
 
@@ -244,7 +245,8 @@ int ftpClose(FTP *ftp) {
 		return -1;
 	}
 
-	close(ftp->controlSocketFd);
+	if (ftp->controlSocketFd)
+		close(ftp->controlSocketFd);
 	
 	return 0;
 }
