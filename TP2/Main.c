@@ -2,7 +2,7 @@
 #include "FTP.h"
 
 void printUsage(char *argv0) {
-	printf("Usage: %s ftp://<host>/<url-path>", argv0);
+	printf("Usage: %s ftp://<host>/<url-path>\n", argv0);
 	printf("Usage: %s ftp://[<user>:<pass>@]<host>/<url-path>\n", argv0);
 }
 
